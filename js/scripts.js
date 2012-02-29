@@ -1,6 +1,7 @@
 $(function() {
     
-    var friends = []
+    var names = [],
+        friends = {}
     
     var getUrl = function(params) {
         var defaultParams = {
@@ -36,22 +37,54 @@ $(function() {
         )
     }
     
+    var addUser = function(user, isFriend) {
+        if (user.name === 'pabloidz') {
+            return false;
+        }
+        if (!friends[user.name]) {
+            friends[user.name] = user;
+            names.push(user.name);
+        }
+        friends[user.name].count = (friends[user.name].count || 0) + 1;
+        friends[user.name].isFriend = (friends[user.name].isFriend || isFriend);
+    }
+    
+    var showList = function() {
+        names.sort(function (nameA, nameB) {
+            return friends[nameB].count - friends[nameA].count;
+        })
+        
+        var output = []
+        $.each(names, function (i, name) {
+            if ((!friends[name].isFriend) && friends[name].count > 10) {
+                output.push('<a href="' + friends[name].url + '">' + name + ' (' + friends[name].count + ' friends in common)</a>')
+            }
+        })
+        
+        $("#friends_list").append(output.join('<br />'))
+        //console.info(friends)
+    }
+    
     var getContents = function() {
         getFriends({'user': 'pabloidz', 'limit': 300}, function(data) {
             if (data.friends) {
                 $.each(data.friends.user, function(i, user) {
-                    getFriends({'user': user.name, 'limit': 1}, function(data2) {
-                        if (data2.friends["@attr"]) {
-                            var total = parseInt(data2.friends["@attr"].total)
-                            //if (total > 100) { 
-                                friends.push(user.name + ' (' + data2.friends["@attr"].total + ')')
-                            //}
+                    addUser(user, true);
+                    getFriends({'user': user.name, 'limit': 20000}, function(data2) {
+                        if ($.isArray(data2.friends.user)) {
+                            $.each(data2.friends.user, function(i, user2) {
+                                addUser(user2, false);
+                            })
+                        }
+                        else {
+                            addUser(data2.friends.user, false);
                         }
                     })
+                    console.info(names.length)
                 })
             }
         })
-        $("#friends_list").append(friends.join('<br />'))
+        showList();
     }
     
     getContents();
