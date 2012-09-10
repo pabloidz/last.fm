@@ -5,7 +5,7 @@ $(function() {
     
     var getUrl = function(params) {
         var defaultParams = {
-            'api_key': '712951dccf80f3d19b4555af570187c5',
+            'api_key': '*****',
             'format': 'json'
         }
     
