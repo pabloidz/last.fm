@@ -1,0 +1,15 @@
+body {
+    font-family: "Georgia";
+}
+
+thead {
+    font-weight: bold;
+}
+
+td.up {
+    color: green;
+}
+
+td.down {
+    color: red;
+}

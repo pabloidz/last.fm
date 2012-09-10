@@ -20,17 +20,10 @@ $(function() {
             success: callback
         });    
     }
+
+    // Region: Get Friends
     
-    var getFriends = function(params, callback) {
-        /*var callbackFn = function (data) {
-            var page = parseInt(data.friends['@attr'].page) + 1
-            var totalPages = parseInt(data.friends['@attr'].totalPages)
-            if (page <= totalPages) {
-                getFriends($.extend({}, {'page': page}, params), callback)
-            }
-            callback(data);
-        }*/
-        
+    var getFriends = function(params, callback) {        
         ajax(
             $.extend({}, {'method': 'user.getfriends'}, params), 
             callback
@@ -56,37 +49,100 @@ $(function() {
         
         var output = []
         $.each(names, function (i, name) {
-            if ((!friends[name].isFriend) && friends[name].count > 10) {
-                output.push('<a href="' + friends[name].url + '">' + name + ' (' + friends[name].count + ' friends in common)</a>')
+            if ((!friends[name].isFriend) && friends[name].count > 15) {
+                output.push('<a href="' + friends[name].url + '">' + name + '</a> (' + friends[name].count + ' friends in common)')
             }
         })
+        $("#friends_list").append('<ol><li>' + output.join('</li><li>') + '</li></ol>')
+    }
+    
+    var addEachUser = function(data, loadMore) {
+        if ($.isArray(data.friends.user)) {
+            $.each(data.friends.user, function(index, user) {
+                addUser(user, false);
+            })
+        }
+        else {
+            addUser(data.friends.user, false);
+        }
         
-        $("#friends_list").append(output.join('<br />'))
-        //console.info(friends)
+        if (loadMore) {
+            loadMore()
+        }
+    }
+    
+    var showLoadingMessage = function(index, total, page, totalPages) {
+        $("#loading").text("Loading " + (index + 1) + " of " + total + " friends")
+        if (totalPages) {
+            $("#loading").append(" (" + page + "/" + totalPages + " pages)")
+        }
     }
     
     var getContents = function() {
         getFriends({'user': 'pabloidz', 'limit': 300}, function(data) {
             if (data.friends) {
-                $.each(data.friends.user, function(i, user) {
+                var friendsTotal = data.friends.user.length
+                $.each(data.friends.user, function(index, user) {
+                    showLoadingMessage(index, friendsTotal)
                     addUser(user, true);
-                    getFriends({'user': user.name, 'limit': 20000}, function(data2) {
-                        if ($.isArray(data2.friends.user)) {
-                            $.each(data2.friends.user, function(i, user2) {
-                                addUser(user2, false);
-                            })
-                        }
-                        else {
-                            addUser(data2.friends.user, false);
-                        }
+                    getFriends({'user': user.name, 'limit': 300}, function(data2) {
+                        addEachUser(data2, function () {
+                            var totalPages = parseInt(data2.friends['@attr'].totalPages);
+                            if (totalPages > 1) {
+                                for (var i = 2; i <= totalPages; i++) {
+                                    getFriends({'user': user.name, 'limit': 300, 'page': i}, function(data3) {
+                                        showLoadingMessage(index, friendsTotal, i, totalPages)
+                                        addEachUser(data3, function() {})
+                                    })
+                                    
+                                }
+                            }    
+                        })
                     })
-                    console.info(names.length)
                 })
             }
         })
+        $("#loading").text("Loading completed")
         showList();
     }
     
-    getContents();
+    // Region: Top 50
+    
+    var getTop50 = function() {
+        ajax(
+            $.extend({}, {'method': 'user.gettopartists'}, {'period': 'overall', 'user': 'pabloidz'}), 
+            function(data) {
+                var output = [],
+                    artists = data.topartists.artist
+                    
+                // Calculate projected count (it may have a proper math name)
+                var total = 0,
+                    firstCount = parseInt(artists[0].playcount),
+                    lastCount = parseInt(artists[artists.length - 1].playcount),
+                    decrement = ((firstCount - lastCount) / (artists.length - 1)),
+                    projectedCount = parseInt(artists[0].playcount),
+                    difference = 0
+                
+                $.each(artists, function(index, artist) {
+                    difference = projectedCount - parseInt(artist.playcount)
+                    output.push('<td>' + artist.name + '</td><td>' + artist.playcount + '</td><td>' + parseInt(projectedCount) + '</td><td class="' + (difference >= 0 ? 'up' : 'down') + '">' + parseInt(difference) + '</td>')
+                    projectedCount -= decrement
+                })
+            
+                var tableHeader = '<table><thead><td>Artist</td><td>Play Count</td><td>Projected Count</td><td>Increment</td></thead><tr>',
+                    tableFooter = '</tr></table>'
+                
+                $("#top_50").append(tableHeader + output.join('</tr><tr>') + tableFooter)
+            }
+        )
+    }
+    
+    if ($("#friends_list").length > 0) {
+        getContents();
+    }
+    
+    if ($("#top_50").length > 0) {
+        getTop50();
+    }
 
 })
